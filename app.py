@@ -43,6 +43,9 @@ def main() -> None:
         st.info("Upload an audio file to start.")
         return
 
+    # Extract and validate audio bytes from the uploaded file
+    audio_bytes = get_audio_bytes(uploaded)
+
     # Show loading spinner while transcribing audio
     with st.spinner("Transcribing..."):
         # Call Whisper model to transcribe audio to text
@@ -72,6 +75,8 @@ def main() -> None:
 
     # Clean transcribed text (lowercase and remove special characters)
     cleaned = clean_text(transcript)
+    # Score the text against interest categories
+    interest_scores = score_interests(cleaned)
     # Create collapsible section for raw transcript
     with st.expander("Transcript (raw)", expanded=False):
         # Display transcript text or placeholder if empty
@@ -94,13 +99,5 @@ def main() -> None:
 
 
 # Run main function when script is executed directly
-    st.subheader("Predicted Interests")
-    st.table(format_interest_table(interest_scores))
-
-    top3 = get_top_interests(interest_scores, top_n=3)
-    st.subheader("Top Tags")
-    st.write(top3 if top3 else ["No clear matches — add more keywords to your taxonomy."])
-
-
 if __name__ == "__main__":
     main()
