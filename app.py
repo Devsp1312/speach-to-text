@@ -82,42 +82,70 @@ DEMO_PROFILES = {
 
 def render_demo_mode() -> None:
     """Render interactive demo mode for testing profiles without audio."""
-    st.subheader("🎮 Interactive Profile Demo")
-    st.write("Adjust interest scores in real-time to see how profiles change instantly!")
+    st.markdown('<div class="section-title">🎮 Interactive Profile Demo</div>', unsafe_allow_html=True)
+    st.write("Try preset profiles or customize your own interests below")
+    st.divider()
     
-    # Create two columns: preset profiles and custom sliders
-    col1, col2 = st.columns([1, 2])
+    # Category emojis for visual clarity
+    category_emojis = {
+        "Tech/Engineering": "💻",
+        "Academics/School": "📚",
+        "Career/Jobs": "💼",
+        "Sports/Fitness": "💪",
+        "Food": "🍔",
+        "Social/People": "👥",
+        "Entertainment/Gaming": "🎮",
+    }
     
+    # Preset profiles selection
+    st.markdown("**Step 1: Choose a Preset Profile (or skip to customize)**")
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    preset_options = list(DEMO_PROFILES.keys())
     with col1:
-        st.markdown("**Quick Presets:**")
-        selected_preset = st.radio("Choose a profile:", list(DEMO_PROFILES.keys()), label_visibility="collapsed")
-        preset_scores = DEMO_PROFILES[selected_preset]
-    
+        if st.button("📗 Load Tech Enthusiast", use_container_width=True):
+            st.session_state.preset = preset_options[0]
     with col2:
-        st.markdown("**Custom Interests (Drag to adjust):**")
-        
-        # Initialize session state for custom scores
-        if "custom_scores" not in st.session_state:
-            st.session_state.custom_scores = preset_scores.copy()
-        
-        # Interactive sliders for each interest category
-        custom_scores = {}
-        for category in preset_scores.keys():
-            value = st.session_state.custom_scores.get(category, preset_scores[category])
-            custom_scores[category] = st.slider(
-                category,
-                min_value=0.0,
-                max_value=100.0,
-                value=value,
-                step=5.0,
-                label_visibility="collapsed"
-            )
-        
-        # Update session state
-        st.session_state.custom_scores = custom_scores
+        if st.button("🎉 Load Social Butterfly", use_container_width=True):
+            st.session_state.preset = preset_options[1]
+    with col3:
+        if st.button("💪 Load Fitness Focused", use_container_width=True):
+            st.session_state.preset = preset_options[2]
+    
+    # Get initial preset
+    if "preset" not in st.session_state:
+        st.session_state.preset = preset_options[0]
+    
+    preset_scores = DEMO_PROFILES[st.session_state.preset]
+    
+    # Initialize session state for custom scores
+    if "custom_scores" not in st.session_state:
+        st.session_state.custom_scores = preset_scores.copy()
+    
+    st.divider()
+    
+    # Custom interests sliders
+    st.markdown("**Step 2: Adjust Your Interests (Drag sliders)**")
+    st.write("*How interested are you in each category? (0 = not interested, 100 = very interested)*")
+    
+    # Display sliders in a single column with clear labels
+    custom_scores = {}
+    for category in preset_scores.keys():
+        emoji = category_emojis.get(category, "")
+        value = st.session_state.custom_scores.get(category, preset_scores[category])
+        custom_scores[category] = st.slider(
+            f"{emoji} {category}",
+            min_value=0.0,
+            max_value=100.0,
+            value=value,
+            step=5.0,
+        )
+    
+    # Update session state
+    st.session_state.custom_scores = custom_scores
     
     # Use custom scores for profile generation
-    active_scores = custom_scores if st.session_state.custom_scores else preset_scores
+    active_scores = custom_scores
     
     # Normalize scores to percentages
     total = sum(active_scores.values())
@@ -128,30 +156,32 @@ def render_demo_mode() -> None:
     
     st.divider()
     
-    # Display scores visualization
+    # Display results
+    st.markdown("**Your Interest Breakdown:**")
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("**Interest Scores:**")
-        score_df = []
-        for cat, score in sorted(normalized_scores.items(), key=lambda x: x[1], reverse=True):
-            if score > 0:
-                score_df.append({"Category": cat, "Score (%)": f"{score:.1f}"})
-        if score_df:
-            st.table(score_df)
-    
-    with col2:
         st.markdown("**Score Distribution:**")
-        # Create a simple bar chart
         import pandas as pd
         df = pd.DataFrame(list(normalized_scores.items()), columns=["Category", "Score"])
         df = df[df["Score"] > 0].sort_values("Score", ascending=False)
+        df["Category"] = df["Category"].apply(lambda x: category_emojis.get(x, "") + " " + x)
         st.bar_chart(df.set_index("Category"))
+    
+    with col2:
+        st.markdown("**Percentages:**")
+        score_df = []
+        for cat, score in sorted(normalized_scores.items(), key=lambda x: x[1], reverse=True):
+            if score > 0:
+                emoji = category_emojis.get(cat, "")
+                score_df.append({"Interest": f"{emoji} {cat}", "Percentage": f"{score:.0f}%"})
+        if score_df:
+            st.table(score_df)
     
     st.divider()
     
     # Generate and display profile
-    st.subheader("📊 Real-Time Profile Preview")
-    st.write("*This profile updates instantly as you adjust the sliders above.*")
+    st.markdown("**Step 3: Your Generated Profile**")
+    st.write("*Based on your interest scores*")
     
     profile = create_profile(normalized_scores)
     profile_display = format_profile_for_display(profile)
@@ -185,8 +215,8 @@ def display_profile_section(interest_scores: Dict[str, float]) -> None:
     # Generate and display anonymous user profile
     if interest_scores:
         st.divider()
-        st.subheader("📊 Anonymous User Profile")
-        st.write("*This profile resets daily and contains no personal identity information.*")
+        st.markdown('<div class="section-title">📊 Anonymous User Profile</div>', unsafe_allow_html=True)
+        st.write("*No personal identity information is stored*")
         
         # Create profile from interest scores
         profile = create_profile(interest_scores)
@@ -219,11 +249,48 @@ def display_profile_section(interest_scores: Dict[str, float]) -> None:
 # Main application function that runs the Streamlit app
 def main() -> None:
     # Configure page title and icon
-    st.set_page_config(page_title="Audio → Speech-to-Text → Interests", page_icon="🎧")
+    st.set_page_config(
+        page_title="Audio → Speech-to-Text → Interests",
+        page_icon="🎧",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Add custom CSS for clean styling
+    st.markdown("""
+        <style>
+        /* Clean header styling */
+        .main-header {
+            font-size: 2.5em;
+            font-weight: 600;
+            color: #1F2937;
+            margin-bottom: 0.5em;
+        }
+        /* Subtitle styling */
+        .subtitle {
+            font-size: 1.1em;
+            color: #6B7280;
+            margin-bottom: 1.5em;
+        }
+        /* Section styling */
+        .section-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: #1F2937;
+            margin-top: 1em;
+            margin-bottom: 0.5em;
+        }
+        /* Improve spacing */
+        .stDivider {
+            margin: 2em 0;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
     # Display main title
-    st.title("Audio → Speech-to-Text → Interests")
-    # Display description of app functionality
-    st.write("Upload up to ~5 minutes of audio. The app transcribes it and predicts interest categories.")
+    st.markdown('<div class="main-header">🎧 Audio → Speech-to-Text → Interests</div>', unsafe_allow_html=True)
+    # Display description
+    st.markdown('<div class="subtitle">Upload audio to transcribe and discover interest categories</div>', unsafe_allow_html=True)
 
     # Display settings sidebar and get user configuration
     settings = render_transcription_sidebar()
@@ -240,7 +307,8 @@ def main() -> None:
         return
 
     # Create file uploader for audio files
-    uploaded = st.file_uploader("Upload audio", type=SUPPORTED_AUDIO_TYPES)
+    st.markdown('<div class="section-title">📁 Upload Audio</div>', unsafe_allow_html=True)
+    uploaded = st.file_uploader("Upload audio", type=SUPPORTED_AUDIO_TYPES, label_visibility="collapsed")
     # If no file uploaded, show message and exit
     if not uploaded:
         st.info("Upload an audio file to start.")
@@ -289,14 +357,14 @@ def main() -> None:
             st.download_button("Download transcript", transcript, file_name="transcript.txt")
 
     # Display section header for predicted interests
-    st.subheader("Predicted Interests")
+    st.markdown('<div class="section-title">📊 Predicted Interests</div>', unsafe_allow_html=True)
     # Display all interest scores in table format
     st.table(format_interest_table(interest_scores))
 
     # Get top 3 interests by score
     top3 = get_top_interests(interest_scores, top_n=3)
     # Display section header for top interests
-    st.subheader("Top Tags")
+    st.markdown('<div class="section-title">🏆 Top Tags</div>', unsafe_allow_html=True)
     # Display top 3 interests or message if no matches found
     st.write(top3 if top3 else ["No clear matches — add more keywords to your taxonomy."])
 
